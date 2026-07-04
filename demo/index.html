@@ -9,64 +9,99 @@
 <body>
   <div class="container">
     <div class="demo">
-      <div class="controls">
-        <button id="connect" class="primary">Connect Wallet</button>
-        <div id="actions" class="actions">
-          <div id="pool" class="inline hidden">Pool: ETH / USDC</div>
-          <div id="amount" class="inline hidden">
-            <label>Swap Amount</label>
-            <input id="amountInput" type="number" value="1000" />
+      <div class="transaction-card">
+        <div class="card-header">
+          <div>
+            <p class="eyebrow">Realtime transaction signal</p>
+            <h1>MEVShield transaction card</h1>
           </div>
-          <button id="swapBtn" class="hidden primary">Swap</button>
+          <div id="statusBadge" class="status-pill">Awaiting wallet</div>
+        </div>
+        <div class="card-body">
+          <div class="asset-stack">
+            <div class="asset-pill">ETH / USDC</div>
+            <div class="amount-row">
+              <span id="transactionAmount">1,000</span>
+              <span class="unit">USDC</span>
+            </div>
+          </div>
+          <div class="metrics">
+            <div class="metric">
+              <span class="metric-label">Risk</span>
+              <span id="cardRisk" class="metric-value danger">--</span>
+            </div>
+            <div class="metric">
+              <span class="metric-label">Fee</span>
+              <span id="cardFee" class="metric-value accent">--</span>
+            </div>
+            <div class="metric">
+              <span class="metric-label">Signature</span>
+              <span id="cardSignature" class="metric-value">Pending</span>
+            </div>
+          </div>
         </div>
       </div>
 
-      <ol class="timeline">
-        <li id="step-wallet" class="timeline-item" data-step="wallet">
-          <div class="bullet"></div>
-          <div class="content">Wallet Connected <img class="check hidden" src="assets/check.svg" alt="ok"/></div>
-        </li>
-        <li id="step-pool" class="timeline-item" data-step="pool">
-          <div class="bullet"></div>
-          <div class="content">Pool Selected <img class="check hidden" src="assets/check.svg" alt="ok"/></div>
-        </li>
-        <li id="step-amount" class="timeline-item" data-step="amount">
-          <div class="bullet"></div>
-          <div class="content">Amount Entered <img class="check hidden" src="assets/check.svg" alt="ok"/></div>
-        </li>
-        <li id="step-submitted" class="timeline-item" data-step="submitted">
-          <div class="bullet"></div>
-          <div class="content">Swap Submitted <img class="check hidden" src="assets/check.svg" alt="ok"/></div>
-        </li>
-        <li id="step-analysis" class="timeline-item" data-step="analysis">
-          <div class="bullet"></div>
-          <div class="content">Loss Engine Analyzing... <img class="spinner-inline" src="assets/loading.svg" alt="loading"/></div>
-        </li>
-        <li id="step-risk" class="timeline-item" data-step="risk">
-          <div class="bullet"></div>
-          <div class="content">Risk Score <span class="score">0</span> <img class="check hidden" src="assets/check.svg" alt="ok"/></div>
-        </li>
-        <li id="step-fee" class="timeline-item" data-step="fee">
-          <div class="bullet"></div>
-          <div class="content">Recommended LP Fee <span class="percent">0.00%</span> <img class="check hidden" src="assets/check.svg" alt="ok"/></div>
-        </li>
-        <li id="step-signature" class="timeline-item" data-step="signature">
-          <div class="bullet"></div>
-          <div class="content">EIP-712 Signature Verified <img class="check hidden" src="assets/check.svg" alt="ok"/></div>
-        </li>
-        <li id="step-sending" class="timeline-item" data-step="sending">
-          <div class="bullet"></div>
-          <div class="content">Sending Transaction... <img class="check hidden" src="assets/check.svg" alt="ok"/></div>
-        </li>
-        <li id="step-executed" class="timeline-item" data-step="executed">
-          <div class="bullet"></div>
-          <div class="content">Swap Executed <img class="check hidden" src="assets/check.svg" alt="ok"/></div>
-        </li>
-        <li id="step-updated" class="timeline-item" data-step="updated">
-          <div class="bullet"></div>
-          <div class="content">LP Fee Updated <img class="check hidden" src="assets/check.svg" alt="ok"/></div>
-        </li>
-      </ol>
+      <div class="timeline-card">
+        <div class="controls">
+          <button id="connect" class="primary">Connect Wallet</button>
+          <div id="actions" class="actions">
+            <div id="pool" class="inline hidden">Pool: ETH / USDC</div>
+            <div id="amount" class="inline hidden">
+              <label>Swap Amount</label>
+              <input id="amountInput" type="number" value="1000" />
+            </div>
+            <button id="swapBtn" class="hidden primary">Swap</button>
+          </div>
+        </div>
+
+        <ol class="timeline">
+          <li id="step-wallet" class="timeline-item" data-step="wallet">
+            <div class="bullet"></div>
+            <div class="content">Wallet Connected <img class="check hidden" src="assets/check.svg" alt="ok"/></div>
+          </li>
+          <li id="step-pool" class="timeline-item" data-step="pool">
+            <div class="bullet"></div>
+            <div class="content">Pool Selected <img class="check hidden" src="assets/check.svg" alt="ok"/></div>
+          </li>
+          <li id="step-amount" class="timeline-item" data-step="amount">
+            <div class="bullet"></div>
+            <div class="content">Amount Entered <img class="check hidden" src="assets/check.svg" alt="ok"/></div>
+          </li>
+          <li id="step-submitted" class="timeline-item" data-step="submitted">
+            <div class="bullet"></div>
+            <div class="content">Swap Submitted <img class="check hidden" src="assets/check.svg" alt="ok"/></div>
+          </li>
+          <li id="step-analysis" class="timeline-item" data-step="analysis">
+            <div class="bullet"></div>
+            <div class="content">Loss Engine Analyzing... <img class="spinner-inline" src="assets/loading.svg" alt="loading"/></div>
+          </li>
+          <li id="step-risk" class="timeline-item" data-step="risk">
+            <div class="bullet"></div>
+            <div class="content">Risk Score <span class="score">0</span> <img class="check hidden" src="assets/check.svg" alt="ok"/></div>
+          </li>
+          <li id="step-fee" class="timeline-item" data-step="fee">
+            <div class="bullet"></div>
+            <div class="content">Recommended LP Fee <span class="percent">0.00%</span> <img class="check hidden" src="assets/check.svg" alt="ok"/></div>
+          </li>
+          <li id="step-signature" class="timeline-item" data-step="signature">
+            <div class="bullet"></div>
+            <div class="content">EIP-712 Signature Verified <img class="check hidden" src="assets/check.svg" alt="ok"/></div>
+          </li>
+          <li id="step-sending" class="timeline-item" data-step="sending">
+            <div class="bullet"></div>
+            <div class="content">Sending Transaction... <img class="check hidden" src="assets/check.svg" alt="ok"/></div>
+          </li>
+          <li id="step-executed" class="timeline-item" data-step="executed">
+            <div class="bullet"></div>
+            <div class="content">Swap Executed <img class="check hidden" src="assets/check.svg" alt="ok"/></div>
+          </li>
+          <li id="step-updated" class="timeline-item" data-step="updated">
+            <div class="bullet"></div>
+            <div class="content">LP Fee Updated <img class="check hidden" src="assets/check.svg" alt="ok"/></div>
+          </li>
+        </ol>
+      </div>
     </div>
   </div>
 

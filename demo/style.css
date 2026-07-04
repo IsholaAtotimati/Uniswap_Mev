@@ -1,20 +1,32 @@
-:root{--bg:#0f1320;--card:#1b212e;--muted:#9aa6bd;--accent:#00ff99;--danger:#ff5050}
+:root{--bg:#060814;--card:rgba(11,16,31,0.9);--muted:#9aa6bd;--accent:#00ff99;--danger:#ff5f7a;--warning:#ffcf4d;--border:rgba(255,255,255,0.08)}
 *{box-sizing:border-box}
-body{background:var(--bg);color:#fff;font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,'Helvetica Neue',Arial;margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center}
-.container{width:420px;padding:30px}
-.primary{background:linear-gradient(90deg,#2753ff,#00d4ff);border:none;color:#fff;padding:12px 18px;border-radius:10px;font-weight:600;cursor:pointer}
+body{background:radial-gradient(circle at top left,#1f3bff 0%,#060814 42%,#02040b 100%);color:#fff;font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,'Helvetica Neue',Arial;margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+.container{width:min(480px,100%)}
+.demo{display:flex;flex-direction:column;gap:16px}
+.primary{background:linear-gradient(90deg,#2753ff,#00d4ff);border:none;color:#fff;padding:12px 18px;border-radius:12px;font-weight:600;cursor:pointer;box-shadow:0 10px 24px rgba(0,212,255,0.24)}
 .hidden{display:none}
-.card{margin-top:18px;padding:20px;background:var(--card);border-radius:12px;animation:fade .45s;box-shadow:0 6px 18px rgba(2,6,23,0.6)}
-.step{font-size:16px}
-.score{font-size:72px;color:var(--danger);font-weight:700}
-.percent{font-size:44px;color:var(--accent);font-weight:700}
-.high{color:#ffb3b3;font-weight:600}
-.spinner{width:48px;height:48px;display:block}
-@keyframes fade{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
-
-/* Timeline styles */
+.transaction-card,.timeline-card{background:var(--card);border:1px solid var(--border);border-radius:20px;box-shadow:0 20px 60px rgba(2,6,23,0.4);backdrop-filter:blur(20px)}
+.transaction-card{padding:20px;position:relative;overflow:hidden}
+.transaction-card::before{content:"";position:absolute;inset:0;background:linear-gradient(135deg,rgba(0,255,153,0.12),rgba(0,212,255,0.06));pointer-events:none}
+.card-header{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:16px}
+.eyebrow{margin:0 0 4px;font-size:11px;letter-spacing:.24em;text-transform:uppercase;color:#7dd3fc}
+.card-header h1{margin:0;font-size:22px}
+.status-pill{padding:8px 12px;border-radius:999px;background:rgba(255,255,255,0.08);color:#dbe6ff;font-size:12px;font-weight:700;white-space:nowrap}
+.card-body{display:flex;flex-direction:column;gap:14px}
+.asset-stack{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 14px;border-radius:14px;background:rgba(255,255,255,0.04)}
+.asset-pill{padding:8px 12px;border-radius:999px;background:rgba(0,255,153,0.12);color:var(--accent);font-weight:700}
+.amount-row{display:flex;align-items:baseline;gap:6px;font-weight:700}
+.amount-row span:first-child{font-size:28px}
+.amount-row .unit{color:var(--muted);font-size:14px}
+.metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.metric{padding:12px;border-radius:14px;background:rgba(255,255,255,0.04);display:flex;flex-direction:column;gap:4px}
+.metric-label{font-size:11px;text-transform:uppercase;letter-spacing:.2em;color:var(--muted)}
+.metric-value{font-size:18px;font-weight:700}
+.metric-value.danger{color:var(--danger)}
+.metric-value.accent{color:var(--accent)}
+.timeline-card{padding:18px 18px 8px}
 .controls{display:flex;flex-direction:column;gap:12px}
-.actions{display:flex;gap:12px;align-items:center;margin-top:6px}
+.actions{display:flex;gap:12px;align-items:center;margin-top:6px;flex-wrap:wrap}
 .actions .inline{color:var(--muted)}
 .timeline{list-style:none;padding:0;margin:20px 0 0 10px;border-left:2px solid rgba(255,255,255,0.06)}
 .timeline-item{position:relative;padding:14px 16px 14px 26px;display:flex;align-items:center;gap:12px}
@@ -33,6 +45,8 @@ body{background:var(--bg);color:#fff;font-family:Inter,ui-sans-serif,system-ui,-
 @keyframes spin{to{transform:rotate(360deg)}}
 
 @media (max-width:460px){
-	.container{width:90vw}
-	.score{font-size:48px}
+  .container{width:100%}
+  .card-header{flex-direction:column}
+  .metrics{grid-template-columns:1fr}
+  .timeline-item .content{font-size:14px}
 }

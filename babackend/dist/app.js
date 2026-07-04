@@ -1,18 +1,12 @@
 import express from "express";
 import { RiskEngine } from "./engine/RiskEngine.js";
-import { SwapContext } from "./models/SwapContext.js";
 import { SwapDirection } from "./types/enums.js";
-
 export const app = express();
-
 app.use(express.json());
-
 const riskEngine = new RiskEngine();
-
-function buildSwapContext(payload: { pool?: string; amount?: number }): SwapContext {
+function buildSwapContext(payload) {
     const amount = Number(payload.amount || 1000);
     const scaledAmount = BigInt(Math.round(Math.max(1, amount) * 1e18));
-
     return {
         poolId: payload.pool || "ETH-USDC",
         blockNumber: 12_345_678 + Math.round(amount % 97),
@@ -23,29 +17,26 @@ function buildSwapContext(payload: { pool?: string; amount?: number }): SwapCont
         token1: "0x0000000000000000000000000000000000000002",
         amount0: scaledAmount,
         amount1: scaledAmount / 1000n * 999n,
-        sqrtPriceX96: 2_000_000_000_000_000n,
-        liquidity: 2_000_000_000_000_000_000n,
+        sqrtPriceX96: 2000000000000000n,
+        liquidity: 2000000000000000000n,
         tick: 120_000,
         fee: 3000,
-        gasPrice: 35_000_000_000n,
+        gasPrice: 35000000000n,
         timestamp: Date.now(),
         direction: SwapDirection.ZERO_FOR_ONE
     };
 }
-
 app.get("/health", (_, res) => {
     res.json({
         status: "healthy",
         service: "MEVShield Risk Engine"
     });
 });
-
 app.post("/api/analyze", async (req, res) => {
     try {
         const payload = req.body ?? {};
         const context = buildSwapContext(payload);
         const result = await riskEngine.analyzeSwap(context);
-
         res.json({
             riskScore: Math.min(99, Math.round(result.finalRiskScore / 100)),
             toxicity: result.toxicityScore > 0.75 ? "HIGH" : result.toxicityScore > 0.5 ? "MEDIUM" : "LOW",
@@ -59,7 +50,8 @@ app.post("/api/analyze", async (req, res) => {
             expectedLeakageUSD: result.expectedLeakageUSD,
             expectedPriceImpact: result.expectedPriceImpact
         });
-    } catch (error) {
+    }
+    catch (error) {
         res.status(500).json({
             error: error instanceof Error ? error.message : "Risk analysis failed"
         });

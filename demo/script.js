@@ -1,21 +1,39 @@
 const connect = document.getElementById('connect');
-const wallet = document.getElementById('wallet');
-const pool = document.getElementById('pool');
-const amount = document.getElementById('amount');
 const swapBtn = document.getElementById('swapBtn');
-const analysis = document.getElementById('analysis');
-const risk = document.getElementById('risk');
-const fee = document.getElementById('fee');
-const signature = document.getElementById('signature');
-const executed = document.getElementById('executed');
-const updated = document.getElementById('updated');
 const amountInput = document.getElementById('amountInput');
+const statusBadge = document.getElementById('statusBadge');
+const cardRisk = document.getElementById('cardRisk');
+const cardFee = document.getElementById('cardFee');
+const cardSignature = document.getElementById('cardSignature');
+const transactionAmount = document.getElementById('transactionAmount');
 const steps = Array.from(document.querySelectorAll('.timeline-item'));
 
-function stepById(id){return document.getElementById(id)}
-
-function setActiveStep(step){
+function setActiveStep(step) {
   steps.forEach(item => item.classList.toggle('active', item.id === step));
+}
+
+function setCardStatus(text, tone = 'default') {
+  if (!statusBadge) return;
+  statusBadge.innerText = text;
+  statusBadge.className = 'status-pill';
+  if (tone === 'danger') statusBadge.classList.add('danger');
+  if (tone === 'accent') statusBadge.classList.add('accent');
+}
+
+function updateCardDetails(payload = {}) {
+  if (transactionAmount) {
+    const amount = Number(amountInput?.value || payload.amount || 1000);
+    transactionAmount.innerText = amount.toLocaleString();
+  }
+  if (payload.risk !== undefined && cardRisk) {
+    cardRisk.innerText = payload.risk;
+  }
+  if (payload.fee !== undefined && cardFee) {
+    cardFee.innerText = payload.fee;
+  }
+  if (payload.signature !== undefined && cardSignature) {
+    cardSignature.innerText = payload.signature;
+  }
 }
 
 connect.onclick = () => {
@@ -27,13 +45,15 @@ connect.onclick = () => {
   connect.innerText = 'Connected';
   markComplete('step-wallet');
   setActiveStep('step-wallet');
+  setCardStatus('Wallet linked', 'accent');
+  updateCardDetails();
 };
 
 function animateNumber(el, target, speed = 20) {
   let cur = 0;
   clearInterval(el._int);
   el._int = setInterval(() => {
-    cur++;
+    cur += 1;
     el.innerText = cur;
     if (cur >= target) clearInterval(el._int);
   }, speed);
@@ -43,29 +63,25 @@ async function runDemoFlow() {
   markComplete('step-submitted');
   setActiveStep('step-analysis');
   document.getElementById('step-analysis').classList.add('running');
+  setCardStatus('Analyzing threat', 'accent');
 
-  // simulate small delay
   await new Promise((r) => setTimeout(r, 600));
-
-  // finish analysis
   markComplete('step-analysis');
   await new Promise((r) => setTimeout(r, 200));
-  // show risk and fee will be handled by caller
 }
 
 swapBtn.onclick = async () => {
-  // optionally call backend analysis
   const payload = {
     pool: 'ETH-USDC',
     amount: Number(amountInput.value || 1000)
   };
 
-  // show analysis and run demo flow
   markComplete('step-pool');
   markComplete('step-amount');
   setActiveStep('step-submitted');
   markComplete('step-submitted');
-  // show analysis spinner
+  updateCardDetails(payload);
+  setCardStatus('Submitting swap', 'accent');
   document.getElementById('step-analysis').querySelector('.spinner-inline').classList.remove('hidden');
 
   let data = null;
@@ -80,28 +96,31 @@ swapBtn.onclick = async () => {
     // ignore
   }
 
-  // run base demo flow (analysis -> risk)
   await runDemoFlow();
 
-  const riskScore = data && data.riskScore ? data.riskScore : 82;
+  const riskScore = data && typeof data.riskScore !== 'undefined' ? data.riskScore : 82;
   setActiveStep('step-risk');
   animateNumber(document.querySelector('#step-risk .score'), riskScore, 12);
   markComplete('step-risk');
 
-  // fee
-  const recommended = data && data.recommendedSpread ? data.recommendedSpread : 9000;
+  const recommended = data && data.feePercent ? data.feePercent : '0.90%';
   setActiveStep('step-fee');
-  document.querySelector('#step-fee .percent').innerText = (recommended / 10000).toFixed(2) + '%';
+  document.querySelector('#step-fee .percent').innerText = recommended;
   markComplete('step-fee');
 
-  // signature
   const verified = data && typeof data.verified !== 'undefined' ? data.verified : true;
   if (verified) {
     setActiveStep('step-signature');
     markComplete('step-signature');
   }
 
-  // sending + executed
+  updateCardDetails({
+    risk: `${riskScore}/100`,
+    fee: recommended,
+    signature: verified ? 'Verified' : 'Pending'
+  });
+  setCardStatus(verified ? 'Threat profile ready' : 'Waiting on signature', verified ? 'accent' : 'danger');
+
   await new Promise((r) => setTimeout(r, 400));
   setActiveStep('step-sending');
   markComplete('step-sending');
@@ -111,23 +130,21 @@ swapBtn.onclick = async () => {
   await new Promise((r) => setTimeout(r, 400));
   setActiveStep('step-updated');
   markComplete('step-updated');
+  setCardStatus('LP fee updated', 'accent');
 };
 
 steps.forEach(item => {
   item.addEventListener('click', () => {
-    const id = item.id;
-    if (!document.getElementById(id).classList.contains('complete')) {
-      setActiveStep(id);
-      return;
-    }
-    setActiveStep(id);
+    setActiveStep(item.id);
   });
 });
 
-function markComplete(id){
+function markComplete(id) {
   const el = document.getElementById(id);
-  if(!el) return;
+  if (!el) return;
   el.classList.add('complete');
   const chk = el.querySelector('.check');
-  if(chk) chk.classList.remove('hidden');
+  if (chk) chk.classList.remove('hidden');
 }
+
+updateCardDetails();
