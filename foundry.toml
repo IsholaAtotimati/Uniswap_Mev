@@ -1,0 +1,16 @@
+[profile.default]
+src = "src"
+out = "out"
+ffi = true
+optimizer = true
+viaIR = true
+libs = ["lib"]
+remappings = [
+    "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
+    "@uniswap/v4-core/=lib/v4-core/",
+    "@uniswap/v4-periphery/=lib/v4-periphery/",
+    "@uniswap/v4-hooks-public/=lib/v4-hooks-public/",
+    "forge-std/=lib/forge-std/src/",
+    "ds-test/=lib/forge-std/lib/ds-test/src/"
+]
+# See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options

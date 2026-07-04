@@ -1,0 +1,9 @@
+version: "3.8"
+
+services:
+  mevshield:
+    build: .
+    ports:
+      - "4000:4000"
+    env_file:
+      - .env
