@@ -12,6 +12,10 @@ export const TYPES = {
         { name: "expectedLeakage", type: "uint256" },
         { name: "toxicityScore", type: "uint256" },
         { name: "recommendedSpread", type: "uint24" },
+        { name: "settlementToken", type: "address" },
+        { name: "settlementAmount", type: "uint256" },
+        { name: "destinationDomain", type: "uint32" },
+        { name: "recipient", type: "bytes32" },
         { name: "expiry", type: "uint256" },
         { name: "nonce", type: "uint256" },
         { name: "signer", type: "address" }

@@ -1,0 +1,37 @@
+.header{
+
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+
+    padding:20px 40px;
+
+    background:#09090b;
+
+    color:white;
+
+}
+
+
+.header button{
+
+    background:#2563eb;
+
+    color:white;
+
+    border:none;
+
+    padding:12px 20px;
+
+    border-radius:10px;
+
+    cursor:pointer;
+
+}
+
+
+.header button:hover{
+
+    opacity:0.85;
+
+}

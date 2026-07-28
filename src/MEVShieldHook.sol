@@ -29,209 +29,134 @@ import {LPFeeLibrary} from "v4-hooks-public/lib/briefcase/src/protocols/v4-core/
 import {PoolId} from "v4-hooks-public/lib/briefcase/src/protocols/v4-core/types/PoolId.sol";
 import {IHooks} from "v4-hooks-public/lib/briefcase/src/protocols/v4-core/interfaces/IHooks.sol";
 import {SwapParams} from "v4-hooks-public/lib/briefcase/src/protocols/v4-core/types/PoolOperation.sol";
+import {ExecutionCoordinator} from "./ExecutionCoordinator.sol";
+import {SignatureEngine} from "./SignatureEngine.sol";
+import {RiskEngine} from "./RiskEngine.sol";
+import {FeeEngine} from "./FeeEngine.sol";
+import {SettlementCoordinator} from "./SettlementCoordinator.sol";
 
-contract MEVShieldHook is BaseHook{
+contract MEVShieldHook is BaseHook, SignatureEngine, RiskEngine, FeeEngine, SettlementCoordinator {
     using LPFeeLibrary for uint24;
-    /**
-     * @notice LossPayload signed by off-chain Loss Engine
-     * @param poolId The Uniswap v4 pool ID
-     * @param expectedLpLoss Estimated LP loss expected from the swap path
-     * @param expectedLeakage Predicted MEV value that could be extracted
-     * @param toxicityScore 0-100 transaction toxicity (sandwich/MEV indicators)
-     * @param recommendedSpread Dynamic LP spread in basis points (0-2% = 0-20000)
-     * @param expiry Block timestamp expiration for signature validity
-     * @param nonce Replay protection counter per signer
-     * @param signer Address of Loss Engine signer (must be trusted)
-     */
-    struct LossPayload{ 
-        bytes32 poolId;
-        uint256 expectedLpLoss;
-        uint256 expectedLeakage;
-        uint256 toxicityScore;
-        uint24 recommendedSpread;
-        uint256 expiry;
-        uint256 nonce;
-        address signer;
-    }
-    /**
-     * @notice Per-pool loss state snapshot
-     */
-    struct PoolLossState {
-        uint256 expectedLpLoss;
-        uint256 expectedLeakage;
-        uint256 toxicityScore;
-        uint24 spread;
-        uint256 updatedAt;
-    }
 
     // State tracking
-    mapping(PoolId => uint24) public lastFee;
-    mapping(PoolId => uint256) public lastFeeUpdateBlock;
-    mapping(address => mapping(uint256 => bool)) public usedNonces;
-    mapping(address => bool) public isTrustedSigner;
-    mapping(bytes32 => PoolLossState) public poolLoss;
-
-    // Admin
-    address public immutable MULTISIG;
-
-    // Fee control constants
-    uint24 public constant MAX_FEE = 20000; // 2.00% max LP fee override
-    uint256 public constant FEE_HYSTERESIS = 500; // 5 bps minimum change to update PoolManager
-    uint256 public constant MIN_UPDATE_INTERVAL = 1; // blocks between PoolManager updates
-
-    // EIP-712 signature scheme
-    bytes32 public constant DOMAIN_TYPEHASH =
-    keccak256(
-        "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
-    );
-    bytes32 public constant LOSS_PAYLOAD_TYPEHASH =
-        keccak256(
-            "LossPayload(bytes32 poolId,uint256 expectedLpLoss,uint256 expectedLeakage,uint256 toxicityScore,uint24 recommendedSpread,uint256 expiry,uint256 nonce,address signer)"
-        );
-    bytes32 public constant NAME_HASH = keccak256("MEVShieldHook");
-    bytes32 public constant VERSION_HASH = keccak256("1");
-    // Events
-    event FeeUpdated(PoolId indexed poolId, uint24 oldFee, uint24 newFee);
-    event TrustedSignerUpdated(address indexed signer, bool trusted);
-    event LossProtectionApplied(
-        bytes32 indexed poolId,
-        uint256 expectedLPLoss,
-        uint256 expectedLeakage,
-        uint256 toxicityScore,
-        uint24  spread
-    );
+    address public executionCoordinator;
+    bool public oracleAvailable = true;
 
     // Errors
-    error InvalidSignature();
-    error ExpiredPayload();
-    error ReplayDetected();
-    error InvalidPayload();
-    error UntrustedSigner();
     error ZeroAddress();
+    error OracleUnavailable();
 
     /**
-     * @param _poolManager Uniswap v4 PoolManager address
-     * @param _multisig Admin multisig for trusted signer management
+     * @param poolManager_ Uniswap v4 PoolManager address
+     * @param multisig Admin multisig for trusted signer management
      */
-    constructor(address _poolManager, address _multisig) BaseHook(IPoolManager(_poolManager)){
-        MULTISIG = _multisig;
+    constructor(address poolManager_, address multisig, address usdc)
+        BaseHook(IPoolManager(poolManager_))
+        SignatureEngine(multisig)
+        SettlementCoordinator(usdc)
+    {
+        _initializeRiskPolicy();
     }
 
-    modifier onlyMultisig() {
-        _onlyMultisig();
-        _;
+    function _multisig() internal view virtual override(RiskEngine, SettlementCoordinator) returns (address) {
+        return MULTISIG;
     }
 
-    function _onlyMultisig() internal view {
-        require(msg.sender == MULTISIG, "Unauthorized");
+    function _poolManager() internal view virtual override returns (IPoolManager) {
+        return poolManager;
     }
 
-    /**
-     * @notice Add or remove a trusted Risk Engine signer
-     * @dev Only callable by multisig. Signers must be explicitly added.
-     * @param signer Address of Risk Engine backend
-     * @param trusted True to trust, false to revoke
-     */
-    function setTrustedSigner(address signer, bool trusted) external onlyMultisig {
-        if (signer == address(0)) revert ZeroAddress();
-        isTrustedSigner[signer] = trusted;
-        emit TrustedSignerUpdated(signer, trusted);
+    function _executionCoordinator() internal view virtual override returns (address) {
+        return executionCoordinator;
     }
 
-    /**
-     * @notice EIP-712 domain separator for signature verification
-     */
-    function _domainSeparator() internal view returns (bytes32){
-    return keccak256(
-        abi.encode(
-            DOMAIN_TYPEHASH,
-            NAME_HASH,
-            VERSION_HASH,
-            block.chainid,
-            address(this)
-        )
-    );
-}
+    function setExecutionCoordinator(address coordinator) external onlyMultisig {
+        if (coordinator == address(0)) revert ZeroAddress();
+        executionCoordinator = coordinator;
+    }
 
-    /**
-     * @notice Hash the RiskPayload struct for EIP-712 signing
-     */
-    function _hashPayload(LossPayload memory payload) internal pure returns (bytes32) {
-        return keccak256(
-            abi.encode(
-                LOSS_PAYLOAD_TYPEHASH,
-                payload.poolId,
-                payload.expectedLpLoss,
-                payload.expectedLeakage,
-                payload.toxicityScore,
-                payload.recommendedSpread,
-                payload.expiry,
-                payload.nonce,
-                payload.signer
-            )
+    function setOracleAvailability(bool available) external onlyMultisig {
+        oracleAvailable = available;
+    }
+
+    function submitRiskPayload(
+        PoolKey calldata key,
+        LossPayload calldata payload,
+        bytes calldata signature
+    ) external returns (bytes32 settlementId) {
+        Attestation[] memory attestations = new Attestation[](1);
+        attestations[0] = Attestation({operator: payload.signer, signature: signature});
+        return submitRiskPayload(key, payload, attestations);
+    }
+
+    function submitRiskPayload(
+        PoolKey calldata key,
+        LossPayload calldata payload,
+        Attestation[] memory attestations
+    ) public returns (bytes32 settlementId) {
+        if (executionCoordinator == address(0)) revert InvalidPayload();
+        return ExecutionCoordinator(executionCoordinator).coordinateSubmission(key, payload, attestations);
+    }
+
+    function verifyPayload(
+        PoolKey calldata key,
+        LossPayload calldata payload,
+        Attestation[] calldata attestations
+    ) external onlyExecutionCoordinator {
+        if (!oracleAvailable) revert OracleUnavailable();
+        LossPayload memory payloadCopy = payload;
+        _verifyPayload(key, payloadCopy, attestations);
+    }
+
+    function storeRiskSnapshot(
+        bytes32 poolId,
+        uint256 expectedLpLoss,
+        uint256 expectedLeakage,
+        uint256 toxicityScore,
+        uint24 spread
+    ) external onlyExecutionCoordinator {
+        poolLoss[poolId] = PoolLossState({
+            expectedLpLoss: expectedLpLoss,
+            expectedLeakage: expectedLeakage,
+            toxicityScore: toxicityScore,
+            spread: spread,
+            updatedAt: block.timestamp
+        });
+
+        emit LossProtectionApplied(
+            poolId,
+            expectedLpLoss,
+            expectedLeakage,
+            toxicityScore,
+            spread
         );
     }
 
-    /**
-     * @notice Recover signer address from EIP-712 signature
-     * @dev Uses ecrecover with v,r,s components extracted from 65-byte signature
-     */
-    function _recoverSigner(bytes32 digest, bytes memory signature) internal pure returns (address) {
-        if (signature.length != 65) revert InvalidSignature();
-
-        bytes32 r;
-        bytes32 s;
-        uint8 v;
-        assembly {
-            let ptr := add(signature, 0x20)
-            r := mload(ptr)
-            s := mload(add(ptr, 0x20))
-            v := byte(0, mload(add(ptr, 0x40)))
-        }
-
-        return ecrecover(digest, v, r, s);
+    function applyFee(PoolKey calldata key, uint24 fee) external onlyExecutionCoordinator returns (uint24) {
+        _updateFee(key, fee);
+        return fee;
     }
 
-    /**
-     * @notice Verify LossPayload signature and replay protection
-     * @dev Checks:
-     *   - Signature is valid (ECDSA + EIP-712)
-     *   - Payload not expired
-     *   - Signer is trusted Risk Engine
-     *   - Nonce not already used (replay protection)
-     *   - Pool ID matches
-     * @param key Pool key
-     * @param payload Signed loss payload
-     * @param signature 65-byte ECDSA signature
-     */
-    function _verifyPayload(
-        PoolKey calldata key,
-        LossPayload memory payload,
-        bytes memory signature
-    ) internal {
-        if (payload.expiry < block.timestamp) revert ExpiredPayload();
-        if (!isTrustedSigner[payload.signer]) revert UntrustedSigner();
-        if (payload.recommendedSpread > MAX_FEE) revert InvalidPayload();
+    function assessRiskPolicy(LossPayload calldata payload)
+        external
+        view
+        returns (bool riskOk, uint24 constrainedSpread)
+    {
+        bool exceeds =
+            payload.expectedLpLoss > maxExpectedLpLoss ||
+            payload.expectedLeakage > maxExpectedLeakage ||
+            payload.toxicityScore > maxToxicityScore ||
+            payload.recommendedSpread > maxRecommendedSpread;
 
-        PoolKey memory keyMem = PoolKey({
-            currency0: key.currency0,
-            currency1: key.currency1,
-            fee: key.fee,
-            tickSpacing: key.tickSpacing,
-            hooks: key.hooks
-        });
-        if (keccak256(abi.encode(keyMem.toId())) != payload.poolId)
-         revert InvalidPayload();
-        if (usedNonces[payload.signer][payload.nonce]) revert ReplayDetected();
+        if (exceeds && rejectOnThreshold) {
+            return (false, 0);
+        }
 
-        bytes32 payloadHash = _hashPayload(payload);
-        bytes32 digest = keccak256(abi.encodePacked("\x19\x01", _domainSeparator(), payloadHash));
-        address recovered = _recoverSigner(digest, signature);
+        constrainedSpread = payload.recommendedSpread > maxRecommendedSpread
+            ? maxRecommendedSpread
+            : payload.recommendedSpread;
 
-        if (recovered != payload.signer) revert InvalidSignature();
-
-        // Mark nonce as used for replay protection
-        usedNonces[payload.signer][payload.nonce] = true;
+        return (true, constrainedSpread);
     }
 
     /**
@@ -269,71 +194,6 @@ contract MEVShieldHook is BaseHook{
      * @param key Pool key
      * @param fee Recommended fee from RiskPayload (capped at MAX_FEE)
      */
-    function _updateFee(PoolKey calldata key, uint24 fee) internal {
-        PoolKey memory keyMem = PoolKey({
-            currency0: key.currency0,
-            currency1: key.currency1,
-            fee: key.fee,
-            tickSpacing: key.tickSpacing,
-            hooks: key.hooks
-        });
-        PoolId poolId = keyMem.toId();
-
-        uint24 prev = lastFee[poolId];
-        if (fee > MAX_FEE) fee = MAX_FEE;
-
-        if (prev == fee) return;
-
-        uint256 feeDiff = fee > prev ? uint256(fee) - uint256(prev) : uint256(prev) - uint256(fee);
-        // Always cache the new fee
-        lastFee[poolId] = fee;
-
-        // Only call PoolManager if change exceeds hysteresis threshold
-        if (feeDiff < FEE_HYSTERESIS) return;
-
-        if (key.fee.isDynamicFee()) {
-            uint256 lastUpdate = lastFeeUpdateBlock[poolId];
-            if (lastUpdate == 0 || block.number >= lastUpdate + MIN_UPDATE_INTERVAL) {
-                poolManager.updateDynamicLPFee(keyMem, fee);
-                lastFeeUpdateBlock[poolId] = block.number;
-            }
-        }
-
-        emit FeeUpdated(poolId, prev, fee);
-    }
-
-    function classifyLoss(uint256 expectedLoss)
-        internal
-        pure
-        returns (uint24)
-    {
-        if (expectedLoss < 5e18) {
-            return 300;
-        }
-
-        if (expectedLoss < 20e18) {
-            return 1000;
-        }
-
-        if (expectedLoss < 50e18){
-            return 3000;
-        }
-
-        return 10000;
-    }
-
-    /**
-     * @notice Resolve the effective fee override from a recommended spread.
-     * @dev Currently returns the recommended spread directly but centralizes
-     * behaviour for future adjustments (capping, transformations, etc.).
-     */
-    function resolveFeeOverride(uint24 recommendedSpread)
-    internal
-    pure
-    returns (uint24)
-{
-    return recommendedSpread;
-}
 
     /**
      * @notice Main hook entrypoint called before every swap
@@ -346,7 +206,7 @@ contract MEVShieldHook is BaseHook{
      * 4. Store risk data on-chain
      * 5. Apply dynamic fee override
      *
-     * @param key Pool key
+     * @param key Pool key 
      * @param data Encoded LossPayload + signature
      * @return The hook selector
      * @return Zero delta (no token changes)
@@ -358,12 +218,18 @@ contract MEVShieldHook is BaseHook{
         SwapParams calldata,
         bytes calldata data
     ) internal override returns (bytes4, BeforeSwapDelta, uint24) {
+        if (!oracleAvailable) revert OracleUnavailable();
+
         // Decode LossPayload and signature
         (LossPayload memory payload, bytes memory signature) =
             abi.decode(data, (LossPayload, bytes));
 
-        // Verify signature, nonce, expiry, and trusted signer
-        _verifyPayload(key, payload, signature);
+        // Verify quorum-backed attestation, nonce, expiry, and trusted signers
+        Attestation[] memory attestations = new Attestation[](1);
+        attestations[0] = Attestation({operator: payload.signer, signature: signature});
+        _verifyPayload(key, payload, attestations);
+
+        uint24 constrainedSpread = evaluateRiskPolicy(payload);
 
         // Store risk snapshot for off-chain monitoring
         poolLoss[payload.poolId] = PoolLossState({
@@ -382,10 +248,19 @@ contract MEVShieldHook is BaseHook{
             payload.recommendedSpread
         );
 
-        // Update cached fee with hysteresis protection
-        _updateFee(key, payload.recommendedSpread);
+        _authorizeSettlement(
+            payload.poolId,
+            payload.settlementToken,
+            payload.settlementAmount,
+            payload.destinationDomain,
+            payload.recipient,
+            payload.nonce
+        );
 
-        uint24 feeOverride = resolveFeeOverride(payload.recommendedSpread);
+        // Update cached fee with hysteresis protection
+        _updateFee(key, constrainedSpread);
+
+        uint24 feeOverride = resolveFeeOverride(constrainedSpread);
 
         if (key.fee.isDynamicFee()) {
             feeOverride |= LPFeeLibrary.OVERRIDE_FEE_FLAG;
@@ -398,5 +273,5 @@ contract MEVShieldHook is BaseHook{
             BeforeSwapDeltaLibrary.ZERO_DELTA,
             feeOverride
         );
-    }
-}
+ }
+}   

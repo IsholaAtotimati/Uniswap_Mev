@@ -25,10 +25,16 @@ export class PoolListener {
     }
 
     start() {
+        const shouldRunSimulation = Boolean(env.PRIVATE_KEY && env.HOOK_ADDRESS);
 
-        logger.info("PoolListener started (SIMULATION MODE)");
+        if (!shouldRunSimulation) {
+            logger.info("PoolListener started in passive mode; live signing and hook submission are disabled.");
+            return;
+        }
 
-        setInterval(async () => {
+        logger.info("PoolListener started (LIVE MODE)");
+
+        const interval = setInterval(async () => {
 
             const swap = this.simulator.generate();
 
@@ -76,6 +82,8 @@ export class PoolListener {
                 this.signer
             );
 
+            payload.settlementToken = env.USDC;
+
             const signature = await this.signatureService.sign(payload);
 
             logger.info({
@@ -85,5 +93,7 @@ export class PoolListener {
             });
 
         }, 2000);
+
+        (this as any).interval = interval;
     }
 }

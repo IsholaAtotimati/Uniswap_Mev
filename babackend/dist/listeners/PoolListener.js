@@ -21,8 +21,13 @@ export class PoolListener {
         }
     }
     start() {
-        logger.info("PoolListener started (SIMULATION MODE)");
-        setInterval(async () => {
+        const shouldRunSimulation = Boolean(env.PRIVATE_KEY && env.HOOK_ADDRESS);
+        if (!shouldRunSimulation) {
+            logger.info("PoolListener started in passive mode; live signing and hook submission are disabled.");
+            return;
+        }
+        logger.info("PoolListener started (LIVE MODE)");
+        const interval = setInterval(async () => {
             const swap = this.simulator.generate();
             logger.info({
                 msg: "New simulated swap",
@@ -50,6 +55,7 @@ export class PoolListener {
             const poolId = ethers.keccak256(abiCoder.encode(["address", "address", "uint24", "int24", "address"], [poolKey.currency0, poolKey.currency1, poolKey.fee, poolKey.tickSpacing, poolKey.hooks]));
             const payloadPoolId = ethers.keccak256(poolId);
             const payload = this.payloadBuilder.build(result, payloadPoolId, this.signer);
+            payload.settlementToken = env.USDC;
             const signature = await this.signatureService.sign(payload);
             logger.info({
                 msg: "Signed payload generated",
@@ -57,5 +63,6 @@ export class PoolListener {
                 signature
             });
         }, 2000);
+        this.interval = interval;
     }
 }
