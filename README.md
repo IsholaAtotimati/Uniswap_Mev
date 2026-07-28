@@ -3,7 +3,9 @@ Real-time MEV Risk Intelligence for Uniswap v4
 MEVShield is a protocol that protects liquidity providers from toxic order flow by combining off-chain risk intelligence with on-chain enforcement through Uniswap v4 Hooks.
 
 Documentation:https://mevshield.netlify.app/
+
 Overview
+
 Modern AMMs rely on static fee models that cannot react to changing market conditions. During periods of high volatility or toxic order flow, liquidity providers may experience value leakage through sandwich attacks, arbitrage, and adverse selection.
 
 MEVShield introduces an adaptive execution layer that evaluates swap risk before execution and dynamically adjusts LP fees using cryptographically signed risk assessments.
