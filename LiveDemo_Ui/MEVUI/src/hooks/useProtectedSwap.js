@@ -27,7 +27,7 @@ export default function useProtectedSwap() {
     // start polling when a settlementId is available
     if (!settlementId) return;
 
-    const apiBase = import.meta.env.VITE_API_URL || "";
+    const apiBase = (import.meta.env.VITE_API_URL || "http://localhost:4000").replace(/\/$/, "");
     const poll = async () => {
       try {
         const res = await fetch(`${apiBase}/settlement/status/${settlementId}`);
