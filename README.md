@@ -1,276 +1,841 @@
-Real-time MEV Risk Intelligence for Uniswap v4
+# 🛡️ MEVShield
 
-MEVShield is a protocol that protects liquidity providers from toxic order flow by combining off-chain risk intelligence with on-chain enforcement through Uniswap v4 Hooks.
+## Programmable Execution Infrastructure for USDC
 
-Documentation:https://mevshield.netlify.app/
+> **MEVShield is an intelligent execution layer for programmable money that analyzes USDC transactions, generates cryptographically signed Execution Policies, and enforces those policies on-chain before settlement.**
 
-Overview
+### The idea in one sentence
 
-Modern AMMs rely on static fee models that cannot react to changing market conditions. During periods of high volatility or toxic order flow, liquidity providers may experience value leakage through sandwich attacks, arbitrage, and adverse selection.
+**Circle makes money programmable. MEVShield makes its execution programmable.**
 
-MEVShield introduces an adaptive execution layer that evaluates swap risk before execution and dynamically adjusts LP fees using cryptographically signed risk assessments.
+Traditional DeFi asks:
 
-Instead of replacing the AMM, MEVShield extends the Uniswap v4 execution model with programmable protection while preserving composability and low on-chain overhead.
+> **"Can this transaction execute?"**
 
-Problem Statement
+MEVShield asks:
 
-Liquidity providers continuously lose value due to toxic order flow.
+> **"Should this transaction execute under these conditions?"**
 
-Current AMMs typically expose fixed or manually configured fee tiers that cannot adapt to:
+Before a transaction reaches liquidity, MEVShield evaluates execution risk, generates an explicit policy describing the conditions under which the transaction is allowed to execute, and uses a Uniswap v4 Hook to verify and enforce that policy on-chain.
 
-Large directional trades
-Sandwich attacks
-Toxic arbitrage
-Volatility spikes
-Repeated flow from sophisticated searchers
+```text
+                    MEVShield
 
-As a result, LPs often underprice execution risk.
+User Intent
+     │
+     ▼
+Circle Wallet / AppKit
+     │
+     ▼
+Risk & MEV Analysis
+     │
+     ▼
+Execution Policy
+     │
+     ▼
+EIP-712 Authorization
+     │
+     ▼
+Uniswap v4 Hook
+     │
+     ▼
+On-Chain Policy Enforcement
+     │
+     ▼
+USDC Execution & Settlement
+     │
+     ▼
+Arc Testnet
+```
 
-Solution
+🌐 **Live Demo Documentation:** https://mevshield.netlify.app/
 
-MEVShield separates computation from enforcement.
+---
 
-Heavy computation occurs off-chain.
+# 1. 🔴 The Problem
 
-Minimal verification occurs on-chain.
+## Stablecoin transactions are programmable — but execution is often not.
 
-This architecture enables sophisticated risk analysis while keeping gas costs predictable.
+USDC enables programmable money, but when that money interacts with DeFi liquidity, the transaction is still exposed to changing execution conditions.
 
-Trader
-   │
-   ▼
-Frontend
-   │
-   ▼
-Risk Intelligence Engine
-   │
-   ├── Feature Extraction
-   ├── Risk Scoring
-   ├── Loss Estimation
-   └── Payload Signing
+A transaction can encounter:
+
+* Sandwich attacks
+* MEV extraction
+* Toxic order flow
+* Adverse selection
+* Poor liquidity
+* Excessive price impact
+* Market volatility
+* Stale execution assumptions
+* Unexpected execution conditions
+
+Most transaction systems answer one fundamental question:
+
+> **Can the transaction execute?**
+
+But that is not necessarily the right question.
+
+A transaction can be technically valid while being economically unfavorable.
+
+### Traditional execution
+
+```text
+User
+  │
+  ▼
+Transaction
+  │
+  ▼
+Liquidity Pool
+  │
+  ▼
+Settlement
+```
+
+The transaction is submitted and the market determines the outcome.
+
+### The missing layer
+
+There is often no intelligent, explicit policy between **user intent** and **execution** that says:
+
+> "This transaction may execute only if these conditions remain valid."
+
+That's the problem MEVShield addresses.
+
+---
+
+# 2. 🟢 The Solution — MEVShield
+
+## Turn transaction intent into policy-controlled execution.
+
+MEVShield introduces an **Execution Policy Layer** between the user's intent and blockchain settlement.
+
+Instead of blindly submitting a transaction, MEVShield:
+
+1. Understands the intended transaction.
+2. Analyzes current execution conditions.
+3. Evaluates MEV and market risk.
+4. Estimates potential execution loss.
+5. Generates an explicit Execution Policy.
+6. Cryptographically signs the policy.
+7. Sends the policy to the on-chain enforcement layer.
+8. Lets the Uniswap v4 Hook verify and enforce the policy.
+
+```text
+User Intent
+     │
+     ▼
+┌──────────────────────┐
+│  MEVShield Engine    │
+│                      │
+│ Risk Analysis        │
+│ MEV Detection        │
+│ Liquidity Analysis   │
+│ Toxic Flow Detection │
+│ Loss Estimation      │
+└──────────┬───────────┘
            │
            ▼
-Signed Risk Payload
+┌──────────────────────┐
+│ Execution Policy     │
+│                      │
+│ Max Slippage         │
+│ Risk Threshold       │
+│ Pool                  │
+│ Expiration            │
+│ Nonce                 │
+│ Execution Constraints │
+└──────────┬───────────┘
+           │
+           │ EIP-712 Signature
+           ▼
+┌──────────────────────┐
+│ Uniswap v4 Hook      │
+│                      │
+│ Verify Signature     │
+│ Validate Policy      │
+│ Check Nonce          │
+│ Check Expiration     │
+│ Enforce Constraints  │
+└──────────┬───────────┘
            │
            ▼
-MEVShield Hook
-           │
-   ├── Signature Verification
-   ├── Replay Protection
-   ├── Policy Validation
-   └── Dynamic Fee Enforcement
-           │
-           ▼
-Uniswap v4 PoolManager
-           │
-           ▼
-Swap Execution
-Key Features
-Real-Time Risk Scoring
+       Execution
+```
 
-Evaluates swap characteristics before execution.
+### The architectural principle
 
-Signals may include:
+MEVShield separates:
 
-Trade size
-Pool volatility
-Historical order flow
-Toxicity indicators
-Market conditions
-Dynamic Fee Adjustment
+**Intelligence** from **Enforcement**.
 
-LP fees are adjusted according to estimated execution risk instead of remaining static.
+The expensive and evolving risk analysis happens off-chain.
 
-Cryptographic Verification
+The final authorization and execution constraints are verified deterministically on-chain.
 
-Every recommendation is signed off-chain using EIP-712 typed data.
+This creates a system where the intelligence layer can evolve without requiring the blockchain to reproduce complex analytics.
 
-The hook verifies:
+---
 
-Signer
-Expiration
-Nonce
-Payload integrity
+# 3. 🎬 The Demo
 
-before applying policy.
+## One transaction. One policy. One enforcement layer.
 
-Replay Protection
+The MEVShield demo is designed around a simple flow:
 
-Every payload contains a unique nonce and expiration timestamp to prevent replay attacks.
+```text
+I clicked
+    ↓
+MEVShield analyzed the transaction
+    ↓
+Risk was evaluated
+    ↓
+An Execution Policy was generated
+    ↓
+The policy was cryptographically authorized
+    ↓
+The Uniswap v4 Hook verified the policy
+    ↓
+The execution path was policy-controlled
+```
 
-Low Gas Overhead
+The demo demonstrates the core MEVShield concept:
 
-The hook performs verification only.
+> **Execution is not merely authorized. It is authorized under explicit conditions.**
 
-Complex analytics remain off-chain.
+### Example Risk Analysis
 
-Architecture
-Off-Chain Components
-Risk Engine
-b        v  
-Generates swap risk assessments.
+A transaction can be evaluated using signals such as:
 
-Responsibilities include:
+```text
+Risk Score          → 46
+Risk Level          → MEDIUM
+MEV Probability     → Evaluated
+Price Impact        → Evaluated
+Liquidity Risk      → Evaluated
+Expected Loss       → Estimated
+Execution Confidence→ Evaluated
+```
 
-Feature extraction
-Risk scoring
-Expected LP loss estimation
-Recommended fee generation
-Payload Signer
+The result is transformed into a machine-readable Execution Policy.
 
-Signs risk recommendations using EIP-712.
+### Example policy lifecycle
 
-Output:
-
-Pool ID
-Risk Score
-Recommended Fee
-Expiry
-Nonce
-Signature
-On-Chain Components
-MEVShield Hook
-
-The protocol enforcement layer.
-
-Responsibilities include:
-
-Signature verification
-Expiry validation
-Replay protection
-Policy enforcement
-Dynamic LP fee application
-Protocol Flow
-Swap Requested
-
-↓
-
-Swap Features Extracted
-
-↓
-
-Risk Score Generated
-
-↓
-
-Recommended Fee Computed
-
-↓
-
-Payload Signed
-
-↓
-
+```text
+Transaction Intent
+        │
+        ▼
+Risk Evaluation
+        │
+        ▼
+Policy Generated
+        │
+        ▼
+EIP-712 Signed
+        │
+        ▼
+Submitted On-Chain
+        │
+        ▼
 Hook Verification
+        │
+        ▼
+Policy Enforcement
+```
 
-↓
+The objective is to make the execution decision **explicit, cryptographically authorized, and enforceable**.
 
-Fee Applied
+---
 
-↓
+# 4. 🔵 Arc + USDC + Circle
 
-Swap Executed
-Repository Structure
-contracts/
+## Built for programmable money
+
+MEVShield is designed around the idea that programmable money becomes significantly more powerful when its **execution conditions are programmable too**.
+
+### Circle provides the money layer.
+
+### MEVShield adds the execution-policy layer.
+
+```text
+                 CIRCLE
+                   │
+       ┌───────────┼───────────┐
+       │           │           │
+      USDC       Wallets      Arc
+       │           │           │
+       └───────────┼───────────┘
+                   │
+                   ▼
+              MEVShield
+                   │
+        ┌──────────┼──────────┐
+        │          │          │
+   Intelligence  Policy   Enforcement
+        │          │          │
+        └──────────┼──────────┘
+                   │
+                   ▼
+            Programmable
+               Execution
+```
+
+---
+
+## 💵 USDC
+
+**USDC is the primary settlement asset for MEVShield.**
+
+MEVShield is designed around USDC-native execution flows where transactions can be analyzed and constrained before settlement.
+
+USDC provides the stable digital-dollar primitive.
+
+MEVShield provides the policy and execution intelligence.
+
+---
+
+## 👛 Circle Wallets & AppKit
+
+Circle Wallet infrastructure provides the wallet layer through which users can interact with protected USDC flows.
+
+The intended user journey is:
+
+```text
+User
+ ↓
+Circle Wallet / AppKit
+ ↓
+USDC
+ ↓
+Payment / Swap Intent
+ ↓
+MEVShield Analysis
+ ↓
+Execution Policy
+ ↓
+Authorization
+ ↓
+Protected Execution
+```
+
+This makes wallet infrastructure part of the application flow rather than simply an external dependency.
+
+---
+
+## ⛓️ Arc Testnet
+
+MEVShield's smart-contract infrastructure is deployed on Arc Testnet.
+
+Arc serves as the initial blockchain execution environment for the project's policy enforcement and USDC execution infrastructure.
+
+Deployment Addresses
+Component	Address
+MEVShield Hook	0x695333A0Ad0C1412057ee66F9C9a492aa45Cc080
+Hook Address	0x695333A0Ad0C1412057ee66F9C9a492aa45Cc080
+Settlement Relayer	0x2e988A386a799F506693793c6A5AF6B54dfAaBfB
+EURC	0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a
+Arc Testnet RPC
+https://rpc.testnet.arc.network
+
+These addresses correspond to the current Arc Testnet deployment used by MEVShield.
+
+Security: Never publish private keys, API keys, Circle Entity Secrets, wallet secrets, or other credentials in the README or repository.
+
+## 🌉 CCTP
+
+MEVShield's architecture can extend to cross-chain USDC execution through Circle's Cross-Chain Transfer Protocol.
+
+The roles remain separate:
+
+**CCTP → moves native USDC between supported chains.**
+
+**MEVShield → determines the execution conditions surrounding the transaction.**
+
+This creates a path toward:
+
+* Cross-chain USDC execution
+* Treasury management
+* Policy-controlled payments
+* Institutional settlement
+* Autonomous financial workflows
+
+---
+
+# 5. ⚙️ Technology
+
+## Execution Policy Engine
+
+The **Execution Policy Engine (EPE)** is the intelligence layer behind MEVShield.
+
+It evaluates the intended transaction against current execution conditions.
+
+### Risk pipeline
+
+```text
+Transaction Intent
+       │
+       ▼
+Feature Extraction
+       │
+       ▼
+┌────────────────────────┐
+│ Risk Analysis          │
+│                        │
+│ Market Risk            │
+│ Liquidity Risk         │
+│ MEV Risk               │
+│ Toxic Flow Detection   │
+│ Price Impact           │
+│ Execution Quality      │
+└───────────┬────────────┘
+            │
+            ▼
+      Loss Estimation
+            │
+            ▼
+ Protection / Fee Analysis
+            │
+            ▼
+     Policy Generation
+            │
+            ▼
+       EIP-712 Signing
+            │
+            ▼
+   Signed Execution Policy
+```
+
+---
+
+# 🔐 Execution Policies
+
+An Execution Policy is a cryptographically signed description of the conditions under which an execution is authorized.
+
+A policy can contain:
+
+| Parameter        | Purpose                                     |
+| ---------------- | ------------------------------------------- |
+| Pool Identifier  | Identifies the target liquidity pool        |
+| Settlement Asset | Defines the settlement asset                |
+| Risk Score       | Represents assessed execution risk          |
+| Maximum Slippage | Defines acceptable execution slippage       |
+| Recommended Fee  | Represents recommended protection economics |
+| Expiration       | Prevents stale policies                     |
+| Nonce            | Prevents replay                             |
+| Signature        | Authenticates the policy issuer             |
+
+MEVShield uses **EIP-712 Typed Data** so the on-chain enforcement layer can verify the policy deterministically.
+
+---
+
+# 🛡️ On-Chain Policy Enforcement
+
+This is the critical difference between MEVShield and a conventional risk dashboard.
+
+A risk engine can tell a user:
+
+> "This transaction looks risky."
+
+MEVShield is designed to take the next step:
+
+> **"This transaction is authorized only if the required execution policy is satisfied."**
+
+The Uniswap v4 Hook acts as the enforcement boundary.
+
+```text
+                 OFF-CHAIN
+┌──────────────────────────────────┐
+│                                  │
+│ Risk Intelligence                │
+│ MEV Analysis                     │
+│ Liquidity Analysis               │
+│ Loss Estimation                  │
+│ Policy Generation                │
+│                                  │
+└───────────────┬──────────────────┘
+                │
+                │ Signed Policy
+                ▼
+                 ON-CHAIN
+┌──────────────────────────────────┐
+│                                  │
+│ Uniswap v4 Hook                  │
+│                                  │
+│ Signature Verification           │
+│ Policy Validation                │
+│ Nonce Validation                 │
+│ Expiration Validation             │
+│ Execution Constraints             │
+│                                  │
+└───────────────┬──────────────────┘
+                │
+                ▼
+           USDC Execution
+```
+
+This creates a clean boundary:
+
+**Off-chain intelligence decides what should be allowed.**
+
+**On-chain enforcement determines whether the conditions are satisfied.**
+
+---
+
+# 🦄 Why Uniswap v4 Hooks?
+
+Uniswap v4 Hooks provide programmable control points around pool operations.
+
+MEVShield uses this capability to introduce an execution-policy enforcement layer around liquidity execution.
+
+The result is:
+
+```text
+User Intent
+     ↓
+MEVShield Intelligence
+     ↓
+Execution Policy
+     ↓
+Uniswap v4 Hook
+     ↓
+Policy Enforcement
+     ↓
+PoolManager
+     ↓
+USDC Execution
+```
+
+This is what turns MEVShield from a monitoring system into an **execution infrastructure concept**.
+
+---
+
+# 🏗️ System Architecture
+
+```text
+                         ┌──────────────────────┐
+                         │  Circle Wallet/AppKit│
+                         └──────────┬───────────┘
+                                    │
+                                    ▼
+                         ┌──────────────────────┐
+                         │     User Intent      │
+                         │    USDC Payment/Swap │
+                         └──────────┬───────────┘
+                                    │
+                                    ▼
+                  ┌────────────────────────────────┐
+                  │      MEVShield Engine           │
+                  │                                │
+                  │ Feature Extraction             │
+                  │ Risk Analysis                  │
+                  │ MEV Detection                  │
+                  │ Toxic Flow Detection           │
+                  │ Loss Estimation                │
+                  │ Policy Generation              │
+                  │ EIP-712 Signing                │
+                  └───────────────┬────────────────┘
+                                  │
+                                  ▼
+                    ┌──────────────────────────┐
+                    │ Signed Execution Policy  │
+                    └────────────┬─────────────┘
+                                 │
+                                 ▼
+                    ┌──────────────────────────┐
+                    │     MEVShield Hook       │
+                    │                          │
+                    │ Signature Verification   │
+                    │ Policy Validation        │
+                    │ Nonce Validation         │
+                    │ Expiration Checks        │
+                    │ Execution Constraints    │
+                    └────────────┬─────────────┘
+                                 │
+                                 ▼
+                    ┌──────────────────────────┐
+                    │      Uniswap v4           │
+                    │       PoolManager         │
+                    └────────────┬─────────────┘
+                                 │
+                                 ▼
+                    ┌──────────────────────────┐
+                    │      USDC Execution       │
+                    │        on Arc             │
+                    └──────────────────────────┘
+```
+
+---
+
+# 🌍 Why This Matters
+
+MEVShield is not trying to replace Circle or Uniswap.
+
+It connects their capabilities with a new execution-policy layer.
+
+### Circle
+
+**Programmable money**
+
+### Uniswap
+
+**Programmable liquidity**
+
+### MEVShield
+
+**Programmable execution**
+
+Together:
+
+```text
+Programmable Money
+        +
+Programmable Liquidity
+        +
+Programmable Execution
+        ↓
+Policy-Controlled Financial Infrastructure
+```
+
+This architecture can support applications where financial transactions are:
+
+**Analyzed → Authorized → Verified → Enforced → Settled**
+
+---
+
+# 🚀 Beyond MEV Protection
+
+MEV protection is the first use case.
+
+The underlying infrastructure is broader.
+
+### Stablecoin Payments
+
+Payments that execute only when predefined conditions are satisfied.
+
+### Treasury Management
+
+USDC deployment constrained by policy, risk, and authorization rules.
+
+### Institutional Execution
+
+Policy-controlled execution for larger stablecoin transactions.
+
+### Cross-Chain Settlement
+
+USDC movement combined with explicit execution policies.
+
+### Autonomous Agents
+
+Agents that can transact within predefined financial boundaries.
+
+For example:
+
+```text
+Agent
+ ↓
+Spending Policy
+ ↓
+Risk Analysis
+ ↓
+Execution Authorization
+ ↓
+On-Chain Enforcement
+ ↓
+USDC Settlement
+```
+
+This allows autonomous systems to interact with money without requiring unrestricted control over funds.
+
+---
+
+# 🗺️ Roadmap
+
+## Phase I — Policy-Controlled USDC Execution
+
+* [x] Execution Policy Engine
+* [x] Risk analysis pipeline
+* [x] EIP-712 policy signing
+* [x] Uniswap v4 Hook
+* [x] Policy verification
+* [x] Replay protection
+* [x] Arc Testnet deployment
+* [x] Circle Wallet / AppKit integration
+
+## Phase II — Programmable Stablecoin Infrastructure
+
+* [ ] Harden end-to-end settlement
+* [ ] CCTP-powered cross-chain execution
+* [ ] Multi-pool MEV protection
+* [ ] Stablecoin treasury automation
+* [ ] Institutional execution APIs
+* [ ] Payment policy templates
+* [ ] Advanced execution analytics
+
+## Phase III — Autonomous Finance
+
+* [ ] AI-assisted execution policies
+* [ ] Agent-to-agent programmable payments
+* [ ] Autonomous treasury execution
+* [ ] Institutional policy management
+* [ ] Cross-chain autonomous execution
+* [ ] Execution Policy API / SDK
+
+---
+
+# 🛠️ Technology Stack
+
+| Layer                      | Technology              |
+| -------------------------- | ----------------------- |
+| Smart Contracts            | Solidity                |
+| AMM                        | Uniswap v4              |
+| Hook Framework             | Uniswap v4 Hooks        |
+| Backend                    | Node.js + TypeScript    |
+| Execution Intelligence     | Custom Risk Engine      |
+| Blockchain Client          | viem                    |
+| Frontend                   | React / Next.js         |
+| Wallet Infrastructure      | Circle Wallets / AppKit |
+| Authorization              | EIP-712                 |
+| Settlement Asset           | USDC                    |
+| Execution Environment      | Arc Testnet             |
+| Cross-Chain Infrastructure | Circle CCTP             |
+| Development                | Foundry                 |
+
+---
+
+# 📁 Project Structure
+
+```text
+MEV-SHIELD/
 │
-├── hooks/
-├── libraries/
-├── interfaces/
+├── LiveDemo_Ui/
+│   └── MEVUI/
+│       └── Frontend application
+│
+├── babackend/
+│   ├── API
+│   ├── Risk Engine
+│   ├── Execution Policy Engine
+│   └── Settlement Services
+│
+├── src/
+│   └── Smart contracts
+│
+├── script/
+│   └── Deployment and interaction scripts
+│
 ├── test/
-└── script/
-
-backend/
+│   └── Contract tests
 │
-├── engine/
-├── detectors/
-├── services/
-├── listeners/
-├── simulation/
-└── api/
+└── README.md
+```
 
-frontend/
-│
-├── app/
-├── components/
-├── hooks/
-├── lib/
-└── public/
+---
 
-docs/
+# 🚀 Getting Started
 
-assets/
-Technology Stack
-Layer	Technology
-Smart Contracts	Solidity
-Framework	Foundry
-DEX Integration	Uniswap v4 Hooks
-Backend	Node.js + TypeScript
-Blockchain Client	viem
-Frontend	Next.js
-UI	Tailwind CSS
-State Management	React Query
-Wallet	wagmi + RainbowKit
-Signing	EIP-712
-Security Model
+## Prerequisites
 
-The protocol assumes that:
+* Node.js
+* npm
+* Git
+* Foundry
+* Arc Testnet wallet
+* Required Circle credentials
+* Required environment variables
 
-only authorized signers produce payloads
-payloads expire after a defined period
-each payload contains a unique nonce
-signatures cannot be replayed
-policy execution is deterministic
-Performance Goals
+## Clone
 
-The protocol is designed to:
+```bash
+git clone https://github.com/IsholaAtotimati/MEVShield_EncodeClub
+cd MEV-SHIELD
+```
 
-minimize additional gas overhead
-avoid expensive on-chain computation
-preserve deterministic swap execution
-remain composable with existing Uniswap v4 infrastructure
-Local Development
+## Backend
 
-Document:
+```bash
+cd babackend
+npm install
+npm run dev
+```
 
-prerequisites
-installation
-environment variables
-running frontend
-running backend
-deploying contracts
-executing tests
-Demonstration
+## Frontend
 
-The recommended demonstration flow is:
+Open another terminal:
 
-Deploy contracts.
-Start the backend risk engine.
-Launch the frontend.
-Connect a wallet.``
-Submit a swap.
-Observe the generated risk score.
-Verify the signed payload.
-Execute the swap with an adjusted LP fee.
-Roadmap
-Phase I
-Core Hook
-Risk Engine
-Frontend
-End-to-end execution
-Phase II
-Multi-pool support
-Advanced risk models
-Analytics dashboard
-Historical performance
-Phase III
-Multi-DEX integrations
-Cross-chain execution
-Institutional APIs
-Decentralized risk network
-Contributing
+```bash
+cd LiveDemo_Ui/MEVUI
+npm install
+npm run dev
+```
 
-Contributions are welcome through issues, feature proposals, documentation improvements, and pull requests.
+Then open the local development URL provided by the frontend.
 
-License
+---
 
-MIT License
+# ⚠️ Prototype Status
+
+MEVShield is a hackathon-stage prototype focused on demonstrating the architecture of **policy-controlled programmable USDC execution**.
+
+The project combines:
+
+* Arc Testnet
+* USDC
+* Circle Wallet / AppKit
+* Risk intelligence
+* Execution Policies
+* EIP-712 authorization
+* Uniswap v4 Hooks
+* On-chain policy enforcement
+
+The current implementation is undergoing continued hardening of the end-to-end settlement path before production deployment.
+
+The architecture is intentionally designed so that the intelligence layer, policy layer, and blockchain enforcement layer can evolve independently.
+
+---
+
+# 🔭 Vision
+
+The future of programmable finance is not only **programmable money**.
+
+It is **programmable execution**.
+
+USDC provides programmable digital dollars.
+
+Arc provides the execution environment.
+
+Circle Wallets and AppKit provide wallet infrastructure.
+
+CCTP provides a path for native USDC movement across supported chains.
+
+Uniswap v4 provides programmable liquidity.
+
+**MEVShield adds the execution-policy layer that determines how and under what conditions those assets should move.**
+
+The long-term vision is an execution infrastructure where financial transactions are not blindly submitted to markets.
+
+Instead, they become:
+
+```text
+ANALYZED
+   ↓
+AUTHORIZED
+   ↓
+VERIFIED
+   ↓
+ENFORCED
+   ↓
+SETTLED
+```
+
+---
+
+# 🛡️ MEVShield
+
+## Programmable Money Needs Programmable Execution.
+
+**USDC is programmable.**
+
+**Liquidity is programmable.**
+
+**Execution should be programmable too.**
